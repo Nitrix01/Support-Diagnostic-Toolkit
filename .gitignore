@@ -1,0 +1,26 @@
+# ==========================================
+# SUPPORT DIAGNOSTIC TOOLKIT
+# ==========================================
+
+# Rapports de diagnostic
+reports/
+*.log
+*.tmp
+
+# Fichiers contenant potentiellement des données sensibles
+*.env
+*.pfx
+*.key
+*.cer
+
+# Sauvegardes et fichiers temporaires
+Save/
+*.bak
+*.old
+*~
+
+# Configuration locale de VS Code
+.vscode/
+
+# Fichiers temporaires Windows
+Thumbs.db
