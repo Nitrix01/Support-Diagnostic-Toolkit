@@ -30,7 +30,15 @@ function Get-NetworkDiagnostic {
     $interfaces = foreach ($cfg in $ipConfigs) {
         $adapter = $cfg.NetAdapter
         $ipv4 = @($cfg.IPv4Address | ForEach-Object { $_.IPAddress })
-        $gateway = @($cfg.IPv4DefaultGateway | ForEach-Object { $_.NextHop })
+        $gateway = @(
+        $cfg.IPv4DefaultGateway |
+        Where-Object {
+            $null -ne $_ -and
+            $null -ne $_.PSObject.Properties['NextHop']
+        } |
+        ForEach-Object { $_.NextHop } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )   
         $dns = @(Get-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
             ForEach-Object { $_.ServerAddresses } | Where-Object { $_ })
         $ipInterface = Get-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
@@ -58,7 +66,17 @@ function Get-NetworkDiagnostic {
         $recommendations.Add('Verifier le Wi-Fi, le cable Ethernet et les adaptateurs reseau.')
     }
 
-    $gatewayAddresses = @($ipConfigs | ForEach-Object { $_.IPv4DefaultGateway.NextHop } | Where-Object { $_ } | Select-Object -Unique)
+    $gatewayAddresses = @(
+    $ipConfigs |
+        ForEach-Object { $_.IPv4DefaultGateway } |
+        Where-Object {
+            $null -ne $_ -and
+            $null -ne $_.PSObject.Properties['NextHop']
+        } |
+        ForEach-Object { $_.NextHop } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Unique
+    )
     if ($interfaces.Count -gt 0 -and $gatewayAddresses.Count -eq 0) {
         $alerts.Add('Aucune passerelle IPv4 par defaut detectee sur les interfaces actives.')
         $recommendations.Add('Verifier la configuration IP et la presence attendue d une passerelle.')
