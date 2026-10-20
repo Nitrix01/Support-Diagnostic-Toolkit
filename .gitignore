@@ -12,6 +12,9 @@ reports/
 *.pfx
 *.key
 *.cer
+*.cred
+*.secret
+.env
 
 # Sauvegardes et fichiers temporaires
 Save/

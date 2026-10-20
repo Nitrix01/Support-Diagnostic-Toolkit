@@ -1,8 +1,23 @@
-# Support Diagnostic Toolkit - Menu principal V2
+﻿# Support Diagnostic Toolkit - Menu principal V3
 # Diagnostics locaux et distants (WinRM). Aucune action corrective automatique.
+# Chargement du generateur de rapports
+
+$reportPath = Join-Path $PSScriptRoot 'Report.ps1'
+
+if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
+    throw "Fichier Report.ps1 introuvable : $reportPath"
+}
+
+. $reportPath
+
+if (-not (Get-Command New-SDTReport -CommandType Function -ErrorAction SilentlyContinue)) {
+    throw "La fonction New-SDTReport n'a pas ete chargee."
+}
 
 $moduleDirectory = Join-Path $PSScriptRoot 'Modules'
 $remotePath = Join-Path $PSScriptRoot 'Remote.ps1'
+$reportPath = Join-Path $PSScriptRoot 'Report.ps1'
+$reportsDirectory = Join-Path $PSScriptRoot 'reports'
 $moduleFiles = [ordered]@{
     SystemInfo    = 'SystemInfo.ps1'
     Services      = 'Services.ps1'
@@ -199,6 +214,76 @@ function Start-SDTRemoteMenu {
     }
 }
 
+
+function Import-SDTReport {
+    if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
+        throw "Report.ps1 introuvable : $reportPath"
+    }
+    . $reportPath
+    if (-not (Get-Command New-SDTReport -CommandType Function -ErrorAction SilentlyContinue)) {
+        throw 'La fonction New-SDTReport est introuvable dans Report.ps1.'
+    }
+}
+
+function Start-SDTReportLocal {
+    try {
+        Import-SDTReport
+        $report = New-SDTReport -Mode Local -OpenHtml -ErrorAction Stop
+        Write-Host "Rapport cree : $($report.HtmlPath)" -ForegroundColor Green
+        Write-Host "Modules executes : $($report.Executed) / 7 ; echecs : $($report.Failed)"
+    } catch {
+        Write-Host "Erreur du rapport local : $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Start-SDTReportRemote {
+    try {
+        Import-SDTReport
+        $target = (Read-Host 'Nom ou adresse IP du PC cible').Trim()
+        if ([string]::IsNullOrWhiteSpace($target)) {
+            Write-Host 'Aucune cible indiquee.' -ForegroundColor Yellow
+            return
+        }
+        $credential = Get-Credential -Message "Identifiants pour $target"
+        if ($null -eq $credential) {
+            Write-Host 'Authentification annulee.' -ForegroundColor Yellow
+            return
+        }
+        $report = New-SDTReport -Mode Remote -ComputerName $target -Credential $credential -OpenHtml -ErrorAction Stop
+        Write-Host "Rapport cree : $($report.HtmlPath)" -ForegroundColor Green
+        Write-Host "Modules executes : $($report.Executed) / 7 ; echecs : $($report.Failed)"
+    } catch {
+        Write-Host "Erreur du rapport distant : $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Show-SDTExistingReports {
+    if (-not (Test-Path -LiteralPath $reportsDirectory -PathType Container)) {
+        Write-Host 'Aucun dossier reports/ trouve.' -ForegroundColor Yellow
+        return
+    }
+    $files = @(Get-ChildItem -LiteralPath $reportsDirectory -Filter 'diagnostic.html' -File -Recurse -ErrorAction Stop |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 20)
+    if ($files.Count -eq 0) {
+        Write-Host 'Aucun rapport HTML trouve.' -ForegroundColor Yellow
+        return
+    }
+    Write-Host "`n--- Derniers rapports HTML (20 maximum) ---" -ForegroundColor Cyan
+    for ($i = 0; $i -lt $files.Count; $i++) {
+        $computer = Split-Path -Leaf (Split-Path -Parent (Split-Path -Parent $files[$i].FullName))
+        Write-Host ('[{0}] {1} | {2} | {3}' -f ($i + 1), $computer, $files[$i].LastWriteTime.ToString('dd/MM/yyyy HH:mm'), $files[$i].Directory.Name)
+    }
+    $choice = (Read-Host 'Numero du rapport a ouvrir (Entree pour revenir)').Trim()
+    if ([string]::IsNullOrWhiteSpace($choice)) { return }
+    $number = 0
+    if (-not [int]::TryParse($choice, [ref]$number) -or $number -lt 1 -or $number -gt $files.Count) {
+        Write-Host 'Numero invalide.' -ForegroundColor Yellow
+        return
+    }
+    try { Invoke-Item -LiteralPath $files[$number - 1].FullName -ErrorAction Stop }
+    catch { Write-Host "Ouverture impossible : $($_.Exception.Message)" -ForegroundColor Red }
+}
+
 $quit = $false
 while (-not $quit) {
     Write-Host "`n========================================" -ForegroundColor Cyan
@@ -206,11 +291,17 @@ while (-not $quit) {
     Write-Host '========================================' -ForegroundColor Cyan
     Write-Host '[1] Diagnostic local'
     Write-Host '[2] Diagnostic distant (WinRM)'
+    Write-Host '[3] Generer un rapport local complet'
+    Write-Host '[4] Generer un rapport distant complet'
+    Write-Host '[5] Consulter les rapports existants'
     Write-Host '[0] Quitter'
     $choice = Read-Host 'Choisissez une option'
     switch ($choice) {
         '1' { Show-SDTDiagnosticMenu -Mode Local }
         '2' { Start-SDTRemoteMenu }
+        '3' { Start-SDTReportLocal }
+        '4' { Start-SDTReportRemote }
+        '5' { Show-SDTExistingReports }
         '0' { $quit = $true; Write-Host 'Fermeture du programme.' -ForegroundColor Cyan }
         default { Write-Host 'Choix invalide. Reessayez.' -ForegroundColor Yellow }
     }
