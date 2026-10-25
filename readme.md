@@ -63,6 +63,28 @@ Support-Diagnostic-Toolkit/
 
 > La compatibilité doit être vérifiée selon les éditions et versions de Windows utilisées. Le projet a notamment été testé dans un environnement personnel avec des postes Windows 10 et Windows 11.
 
+
+## Aperçu de l'outil
+
+### Menu principal
+
+Le menu PowerShell permet d'accéder aux diagnostics locaux et distants, de générer des rapports complets et de consulter les rapports existants.
+
+![Menu principal](screenshots/menu-principal.png)
+
+### Exécution d'un diagnostic local
+
+Les différents modules sont exécutés afin de collecter les informations nécessaires au diagnostic du poste Windows.
+
+![Diagnostic local](screenshots/diagnostic-local.png)
+
+### Rapport HTML
+
+Les résultats sont centralisés dans un rapport HTML comprenant une synthèse des mesures et des informations détaillées par module.
+
+![Rapport HTML](screenshots/rapport-html.png)
+
+
 ## Installation et démarrage
 
 Récupérer le dépôt, puis ouvrir un terminal PowerShell à la racine du projet :
